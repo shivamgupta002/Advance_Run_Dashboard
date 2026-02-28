@@ -4,11 +4,12 @@ import os
 import subprocess
 import sys
 import monitor
+from datetime import datetime
+
+SCRIPT_FOLDER = "scripts"  
+LOG_FOLDER = "logs"
 
 app = Flask(__name__)
-
-SCRIPT_FOLDER = "scripts"  # Folder where your scripts are stored
-
 
 @app.route("/")
 def dashboard():
@@ -39,14 +40,27 @@ def refresh():
     except Exception as e:
         return jsonify({"status": "Error", "message": str(e)})
 
+SCRIPT_FOLDER = "scripts"
+LOG_FOLDER = "logs"
+
+# Create logs folder if not exists
+if not os.path.exists(LOG_FOLDER):
+    os.makedirs(LOG_FOLDER)
+
 
 @app.route("/run_script/<source_id>")
+
 def run_script(source_id):
 
     script_path = os.path.join(SCRIPT_FOLDER, f"{source_id}.py")
 
     if not os.path.exists(script_path):
         return jsonify({"status": "Error", "message": "Script not found!"})
+
+    # Create timestamp for log file
+    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    log_filename = f"{source_id}_{timestamp}.log"
+    log_path = os.path.join(LOG_FOLDER, log_filename)
 
     try:
         result = subprocess.run(
@@ -56,15 +70,27 @@ def run_script(source_id):
             timeout=300
         )
 
+        # Combine stdout + stderr
+        full_output = (
+            "STDOUT:\n" + result.stdout +
+            "\n\nSTDERR:\n" + result.stderr
+        )
+
+        # Save log file
+        with open(log_path, "w", encoding="utf-8") as log_file:
+            log_file.write(full_output)
+
         if result.returncode == 0:
             return jsonify({
                 "status": "Success",
-                "output": result.stdout or "Script executed successfully."
+                "output": result.stdout,
+                "log_file": log_filename
             })
         else:
             return jsonify({
                 "status": "Failed",
-                "output": result.stderr or "Script failed."
+                "output": result.stderr,
+                "log_file": log_filename
             })
 
     except subprocess.TimeoutExpired:

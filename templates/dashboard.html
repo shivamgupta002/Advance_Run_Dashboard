@@ -59,29 +59,66 @@
 
     <script>
       function runScript(sourceId) {
+        document.getElementById("scriptOutput").textContent =
+          "⏳ Running script...";
+
+        let modal = new bootstrap.Modal(document.getElementById("scriptModal"));
+        modal.show();
+
         fetch("/run_script/" + sourceId)
           .then((response) => response.json())
           .then((data) => {
             let outputText = "";
 
             if (data.status === "Success") {
-              outputText = "✅ SUCCESS\n\n" + data.output;
+              outputText =
+                "✅ SCRIPT SUCCESS\n\n" +
+                "Log File: logs/" +
+                data.log_file +
+                "\n\n" +
+                data.output;
             } else if (data.status === "Failed") {
-              outputText = "❌ FAILED\n\n" + data.output;
+              outputText =
+                "❌ SCRIPT FAILED\n\n" +
+                "Log File: logs/" +
+                data.log_file +
+                "\n\n" +
+                (data.output || data.message);
             } else {
               outputText = "⚠ ERROR\n\n" + data.message;
             }
 
-            // document.getElementById("scriptOutput").textContent = outputText;
+            document.getElementById("scriptOutput").textContent = outputText;
+          })
+          .catch((error) => {
             document.getElementById("scriptOutput").textContent =
-              "⏳ Running script...";
-
-            let modal = new bootstrap.Modal(
-              document.getElementById("scriptModal"),
-            );
-            modal.show();
+              "⚠ Error executing script";
           });
       }
+      //   function runScript(sourceId) {
+      //     fetch("/run_script/" + sourceId)
+      //       .then((response) => response.json())
+      //       .then((data) => {
+      //         let outputText = "";
+
+      //         if (data.status === "Success") {
+      //           outputText = "✅ SUCCESS\n\n" + data.output;
+      //         } else if (data.status === "Failed") {
+      //           outputText = "❌ FAILED\n\n" + data.output;
+      //         } else {
+      //           outputText = "⚠ ERROR\n\n" + data.message;
+      //         }
+
+      //         // document.getElementById("scriptOutput").textContent = outputText;
+      //         document.getElementById("scriptOutput").textContent =
+      //           "⏳ Running script...";
+
+      //         let modal = new bootstrap.Modal(
+      //           document.getElementById("scriptModal"),
+      //         );
+      //         modal.show();
+      //       });
+      //   }
 
       function refreshMonitor() {
         let btn = document.getElementById("refreshBtn");
