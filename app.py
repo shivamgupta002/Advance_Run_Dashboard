@@ -2,26 +2,29 @@ from flask import Flask, render_template, jsonify
 import json
 import os
 import subprocess
-import sys
-import monitor
 from datetime import datetime
-
-SCRIPT_FOLDER = "scripts"  
-LOG_FOLDER = "logs"
 
 app = Flask(__name__)
 
+STATUS_FILE = "status.json"
+LOG_FOLDER = "logs"
+
+os.makedirs(LOG_FOLDER, exist_ok=True)
+
+
+# ---------------- DASHBOARD ---------------- #
 @app.route("/")
 def dashboard():
-    if os.path.exists("status.json"):
-        with open("status.json", "r", encoding="utf-8") as f:
+
+    if os.path.exists(STATUS_FILE):
+        with open(STATUS_FILE, "r", encoding="utf-8") as f:
             data = json.load(f)
     else:
         data = {}
 
     total = len(data)
     changed = sum(1 for s in data.values() if s["overall_status"] == "Changed")
-    no_change = sum(1 for s in data.values() if s["overall_status"] == "No Change")
+    no_change = total - changed
 
     return render_template(
         "dashboard.html",
@@ -32,71 +35,32 @@ def dashboard():
     )
 
 
-@app.route("/refresh")
-def refresh():
-    try:
-        monitor.run_monitor()
-        return jsonify({"status": "Success"})
-    except Exception as e:
-        return jsonify({"status": "Error", "message": str(e)})
-
-SCRIPT_FOLDER = "scripts"
-LOG_FOLDER = "logs"
-
-# Create logs folder if not exists
-if not os.path.exists(LOG_FOLDER):
-    os.makedirs(LOG_FOLDER)
-
-
+# ---------------- RUN SCRIPT ---------------- #
 @app.route("/run_script/<source_id>")
-
 def run_script(source_id):
 
-    script_path = os.path.join(SCRIPT_FOLDER, f"{source_id}.py")
-
-    if not os.path.exists(script_path):
-        return jsonify({"status": "Error", "message": "Script not found!"})
-
-    # Create timestamp for log file
-    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    log_filename = f"{source_id}_{timestamp}.log"
-    log_path = os.path.join(LOG_FOLDER, log_filename)
+    log_file = f"{source_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
+    log_path = os.path.join(LOG_FOLDER, log_file)
 
     try:
         result = subprocess.run(
-            [sys.executable, script_path],
+            ["python", "monitor.py", source_id],
             capture_output=True,
-            text=True,
-            timeout=300
+            text=True
         )
 
-        # Combine stdout + stderr
-        full_output = (
-            "STDOUT:\n" + result.stdout +
-            "\n\nSTDERR:\n" + result.stderr
-        )
+        with open(log_path, "w", encoding="utf-8") as f:
+            f.write(result.stdout)
+            f.write("\n")
+            f.write(result.stderr)
 
-        # Save log file
-        with open(log_path, "w", encoding="utf-8") as log_file:
-            log_file.write(full_output)
+        status = "Success" if result.returncode == 0 else "Failed"
 
-        if result.returncode == 0:
-            return jsonify({
-                "status": "Success",
-                "output": result.stdout,
-                "log_file": log_filename
-            })
-        else:
-            return jsonify({
-                "status": "Failed",
-                "output": result.stderr,
-                "log_file": log_filename
-            })
-
-    except subprocess.TimeoutExpired:
         return jsonify({
-            "status": "Failed",
-            "message": "Script execution timed out."
+            "status": status,
+            "output": result.stdout,
+            "log_file": log_file,
+            "last_checked": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         })
 
     except Exception as e:
@@ -104,6 +68,16 @@ def run_script(source_id):
             "status": "Error",
             "message": str(e)
         })
+
+
+# ---------------- REFRESH MONITOR ---------------- #
+@app.route("/refresh")
+def refresh():
+    try:
+        subprocess.run(["python", "monitor.py"])
+        return jsonify({"status": "Refreshed"})
+    except:
+        return jsonify({"status": "Error"})
 
 
 if __name__ == "__main__":

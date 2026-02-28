@@ -1,275 +1,305 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <title>URL Monitor Dashboard</title>
+<head>
+<meta charset="UTF-8">
+<title>URL Monitor Dashboard</title>
 
-    <!-- Bootstrap 5 CDN -->
-    <link
-      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css"
-      rel="stylesheet"
-    />
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
 
-    <style>
-      body {
-        background-color: #f4f6f9;
-      }
-      .card-hover:hover {
-        transform: scale(1.02);
-        transition: 0.2s ease-in-out;
-      }
-      .details-row {
-        display: none;
-      }
-    </style>
+<style>
 
-    <script>
-      function toggleDetails(id) {
-        let row = document.getElementById("details-" + id);
+body {
+    background: #f4f6f9;
+    font-family: 'Segoe UI', sans-serif;
+}
 
-        if (row.style.display === "" || row.style.display === "none") {
-          row.style.display = "table-row";
-        } else {
-          row.style.display = "none";
-        }
-      }
-    </script>
-  </head>
-  <body>
-    <!-- Script Result Modal -->
-    <div class="modal fade" id="scriptModal" tabindex="-1">
-      <div class="modal-dialog modal-lg">
-        <div class="modal-content">
-          <div class="modal-header">
-            <h5 class="modal-title">Script Execution Result</h5>
-            <button
-              type="button"
-              class="btn-close"
-              data-bs-dismiss="modal"
-            ></button>
-          </div>
-          <div class="modal-body">
-            <pre id="scriptOutput" style="white-space: pre-wrap"></pre>
-          </div>
-        </div>
-      </div>
+/* Header */
+.dashboard-header {
+    background: linear-gradient(135deg, #0d6efd, #0a58ca);
+    color: white;
+    padding: 20px;
+    border-radius: 12px;
+    margin-bottom: 25px;
+}
+
+/* Cards */
+.stat-card {
+    border: none;
+    border-radius: 15px;
+    transition: all 0.2s ease;
+}
+.stat-card:hover {
+    transform: translateY(-5px);
+}
+
+.stat-icon {
+    font-size: 28px;
+    opacity: 0.8;
+}
+
+/* Table Card */
+.main-card {
+    border-radius: 15px;
+    border: none;
+}
+
+/* Badge Styling */
+.badge-status {
+    padding: 6px 10px;
+    font-size: 13px;
+}
+
+/* Details Animation */
+.details-row {
+    display: none;
+    animation: fadeIn 0.3s ease-in-out;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+/* Run Button */
+.run-btn {
+    transition: 0.2s ease;
+}
+
+.run-btn:disabled {
+    opacity: 0.7;
+}
+
+</style>
+</head>
+<body>
+
+<div class="container-fluid mt-4">
+
+<!-- HEADER -->
+<div class="dashboard-header d-flex justify-content-between align-items-center shadow">
+    <div>
+        <h3 class="fw-bold mb-1"><i class="bi bi-globe2"></i> URL Monitor Dashboard</h3>
+        <small>Real-time source monitoring & automation</small>
     </div>
+    <button id="refreshBtn" class="btn btn-light fw-semibold" onclick="refreshMonitor()">
+        <i class="bi bi-arrow-clockwise"></i> Refresh
+    </button>
+</div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<!-- STATS -->
+<div class="row mb-4">
 
-    <script>
-      function runScript(sourceId) {
-        document.getElementById("scriptOutput").textContent =
-          "⏳ Running script...";
+<div class="col-md-4">
+<div class="card stat-card shadow-sm bg-primary text-white p-3">
+<div class="d-flex justify-content-between align-items-center">
+<div>
+<h6>Total Sources</h6>
+<h3>{{ total }}</h3>
+</div>
+<i class="bi bi-database stat-icon"></i>
+</div>
+</div>
+</div>
 
-        let modal = new bootstrap.Modal(document.getElementById("scriptModal"));
-        modal.show();
+<div class="col-md-4">
+<div class="card stat-card shadow-sm bg-danger text-white p-3">
+<div class="d-flex justify-content-between align-items-center">
+<div>
+<h6>Changed</h6>
+<h3>{{ changed }}</h3>
+</div>
+<i class="bi bi-exclamation-triangle stat-icon"></i>
+</div>
+</div>
+</div>
 
-        fetch("/run_script/" + sourceId)
-          .then((response) => response.json())
-          .then((data) => {
-            let outputText = "";
+<div class="col-md-4">
+<div class="card stat-card shadow-sm bg-success text-white p-3">
+<div class="d-flex justify-content-between align-items-center">
+<div>
+<h6>No Change</h6>
+<h3>{{ no_change }}</h3>
+</div>
+<i class="bi bi-check-circle stat-icon"></i>
+</div>
+</div>
+</div>
 
-            if (data.status === "Success") {
-              outputText =
-                "✅ SCRIPT SUCCESS\n\n" +
-                "Log File: logs/" +
-                data.log_file +
-                "\n\n" +
-                data.output;
-            } else if (data.status === "Failed") {
-              outputText =
-                "❌ SCRIPT FAILED\n\n" +
-                "Log File: logs/" +
-                data.log_file +
-                "\n\n" +
-                (data.output || data.message);
-            } else {
-              outputText = "⚠ ERROR\n\n" + data.message;
-            }
+</div>
 
-            document.getElementById("scriptOutput").textContent = outputText;
-          })
-          .catch((error) => {
-            document.getElementById("scriptOutput").textContent =
-              "⚠ Error executing script";
-          });
-      }
-      //   function runScript(sourceId) {
-      //     fetch("/run_script/" + sourceId)
-      //       .then((response) => response.json())
-      //       .then((data) => {
-      //         let outputText = "";
+<!-- TABLE -->
+<div class="card main-card shadow">
+<div class="card-header bg-white fw-bold">
+    <i class="bi bi-list-task"></i> Source Monitoring Status
+</div>
 
-      //         if (data.status === "Success") {
-      //           outputText = "✅ SUCCESS\n\n" + data.output;
-      //         } else if (data.status === "Failed") {
-      //           outputText = "❌ FAILED\n\n" + data.output;
-      //         } else {
-      //           outputText = "⚠ ERROR\n\n" + data.message;
-      //         }
+<div class="card-body table-responsive">
+<table class="table table-hover align-middle">
+<thead class="table-light">
+<tr>
+<th>Source ID</th>
+<th>Status</th>
+<th>Last Checked</th>
+<th>Action</th>
+</tr>
+</thead>
+<tbody>
 
-      //         // document.getElementById("scriptOutput").textContent = outputText;
-      //         document.getElementById("scriptOutput").textContent =
-      //           "⏳ Running script...";
+{% for source_id, info in data.items() %}
+<tr id="row-{{ source_id }}">
+<td class="fw-semibold">{{ source_id }}</td>
 
-      //         let modal = new bootstrap.Modal(
-      //           document.getElementById("scriptModal"),
-      //         );
-      //         modal.show();
-      //       });
-      //   }
+<td class="status-badge">
+{% if info.overall_status == "Changed" %}
+<span class="badge bg-danger badge-status">Changed</span>
+{% else %}
+<span class="badge bg-success badge-status">No Change</span>
+{% endif %}
+</td>
 
-      function refreshMonitor() {
-        let btn = document.getElementById("refreshBtn");
+<td class="last-checked text-muted">{{ info.last_checked }}</td>
 
-        btn.disabled = true;
-        btn.innerHTML = "⏳ Refreshing...";
+<td>
+<button class="btn btn-sm btn-outline-secondary me-2"
+        onclick="toggleDetails('{{ source_id }}')">
+<i class="bi bi-info-circle"></i>
+</button>
 
-        fetch("/refresh")
-          .then((response) => response.json())
-          .then((data) => {
-            location.reload();
-          })
-          .catch((error) => {
-            alert("Error refreshing monitor");
-            btn.disabled = false;
-            btn.innerHTML = "🔄 Refresh Monitor";
-          });
-      }
-    </script>
+<button 
+    id="runBtn-{{ source_id }}"
+    class="btn btn-sm btn-success run-btn"
+    onclick="runScript('{{ source_id }}')">
 
-    <div class="container-fluid mt-4">
-      <!-- Header -->
-      <div class="d-flex justify-content-between align-items-center mb-4">
-        <h3 class="fw-bold">🔎 URL Monitor Dashboard</h3>
-        <button
-          id="refreshBtn"
-          class="btn btn-primary"
-          onclick="refreshMonitor()"
-        >
-          🔄 Refresh Monitor
-        </button>
-      </div>
+    <span class="btn-text">
+        <i class="bi bi-play-fill"></i> Run
+    </span>
 
-      <!-- Status Cards -->
-      <div class="row mb-4">
-        <div class="col-md-4">
-          <div class="card text-white bg-primary shadow card-hover">
-            <div class="card-body">
-              <h5>Total Sources</h5>
-              <h2>{{ total }}</h2>
-            </div>
-          </div>
-        </div>
+    <span class="spinner-border spinner-border-sm d-none" role="status"></span>
+</button>
+</td>
+</tr>
 
-        <div class="col-md-4">
-          <div class="card text-white bg-danger shadow card-hover">
-            <div class="card-body">
-              <h5>Changed</h5>
-              <h2>{{ changed }}</h2>
-            </div>
-          </div>
-        </div>
+<!-- DETAILS ROW -->
+<tr id="details-{{ source_id }}" class="details-row">
+<td colspan="4">
+<div class="card bg-light border-0">
+<div class="card-body">
+<table class="table table-sm">
+<thead>
+<tr>
+<th>URL</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+{% for u in info.urls %}
+<tr>
+<td class="text-break">{{ u.url }}</td>
+<td>
+{% if u.status == "Changed" %}
+<span class="badge bg-danger badge-status">Changed</span>
+{% else %}
+<span class="badge bg-success badge-status">No Change</span>
+{% endif %}
+</td>
+</tr>
+{% endfor %}
+</tbody>
+</table>
+</div>
+</div>
+</td>
+</tr>
+{% endfor %}
 
-        <div class="col-md-4">
-          <div class="card text-white bg-success shadow card-hover">
-            <div class="card-body">
-              <h5>No Change</h5>
-              <h2>{{ no_change }}</h2>
-            </div>
-          </div>
-        </div>
-      </div>
+</tbody>
+</table>
+</div>
+</div>
 
-      <!-- Table -->
-      <div class="card shadow">
-        <div class="card-header bg-dark text-white">
-          Source Monitoring Status
-        </div>
-        <div class="card-body table-responsive">
-          <table class="table table-bordered table-hover align-middle">
-            <thead class="table-light">
-              <tr>
-                <th>Source ID</th>
-                <th>Status</th>
-                <th>Last Checked</th>
-                <th>Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {% for source_id, info in data.items() %}
-              <tr>
-                <td class="fw-bold">{{ source_id }}</td>
+</div>
 
-                <td>
-                  {% if info.overall_status == "Changed" %}
-                  <span class="badge bg-danger">Changed</span>
-                  {% else %}
-                  <span class="badge bg-success">No Change</span>
-                  {% endif %}
-                </td>
+<!-- MODAL -->
+<div class="modal fade" id="scriptModal">
+<div class="modal-dialog modal-lg">
+<div class="modal-content">
+<div class="modal-header">
+<h5 class="modal-title">Script Execution Result</h5>
+<button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+</div>
+<div class="modal-body">
+<pre id="scriptOutput" style="white-space: pre-wrap"></pre>
+</div>
+</div>
+</div>
+</div>
 
-                <td>{{ info.last_checked }}</td>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 
-                <td>
-                  <button
-                    class="btn btn-sm btn-outline-secondary"
-                    onclick="toggleDetails('{{ source_id }}')"
-                  >
-                    Details
-                  </button>
+<script>
 
-                  <button
-                    class="btn btn-sm btn-success"
-                    onclick="runScript('{{ source_id }}')"
-                  >
-                    ▶ Run Script
-                  </button>
-                </td>
-              </tr>
+function toggleDetails(id) {
+let row = document.getElementById("details-" + id);
+row.style.display = row.style.display === "table-row" ? "none" : "table-row";
+}
 
-              <!-- Expand Row -->
-              <tr id="details-{{ source_id }}" class="details-row">
-                <td colspan="4">
-                  <div class="card card-body bg-light">
-                    <table class="table table-sm table-striped">
-                      <thead>
-                        <tr>
-                          <th>URL</th>
-                          <th>Status</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {% for u in info.urls %}
-                        <tr>
-                          <td class="text-break">{{ u.url }}</td>
-                          <td>
-                            {% if u.status == "Changed" %}
-                            <span class="badge bg-danger">Changed</span>
-                            {% elif u.status == "New" %}
-                            <span class="badge bg-info">New</span>
-                            {% elif u.status == "Error" %}
-                            <span class="badge bg-warning text-dark"
-                              >Error</span
-                            >
-                            {% else %}
-                            <span class="badge bg-success">No Change</span>
-                            {% endif %}
-                          </td>
-                        </tr>
-                        {% endfor %}
-                      </tbody>
-                    </table>
-                  </div>
-                </td>
-              </tr>
+function runScript(sourceId) {
 
-              {% endfor %}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-  </body>
+const btn = document.getElementById("runBtn-" + sourceId);
+const spinner = btn.querySelector(".spinner-border");
+const textSpan = btn.querySelector(".btn-text");
+
+const outputBox = document.getElementById("scriptOutput");
+const modal = new bootstrap.Modal(document.getElementById("scriptModal"));
+
+btn.disabled = true;
+spinner.classList.remove("d-none");
+textSpan.innerHTML = " Running...";
+btn.classList.remove("btn-success");
+btn.classList.add("btn-warning");
+
+outputBox.textContent = "⏳ Running script...";
+modal.show();
+
+fetch("/run_script/" + sourceId)
+.then(res => res.json())
+.then(data => {
+
+let statusCell = document.querySelector("#row-" + sourceId + " .status-badge");
+let lastCheckedCell = document.querySelector("#row-" + sourceId + " .last-checked");
+
+if(data.status === "Success"){
+btn.classList.remove("btn-warning");
+btn.classList.add("btn-success");
+textSpan.innerHTML = '<i class="bi bi-check-lg"></i> Success';
+statusCell.innerHTML = '<span class="badge bg-success badge-status">Success</span>';
+}else{
+btn.classList.remove("btn-warning");
+btn.classList.add("btn-danger");
+textSpan.innerHTML = '<i class="bi bi-x-lg"></i> Failed';
+statusCell.innerHTML = '<span class="badge bg-danger badge-status">Failed</span>';
+}
+
+spinner.classList.add("d-none");
+btn.disabled = false;
+lastCheckedCell.textContent = data.last_checked;
+
+outputBox.textContent =
+(data.status === "Success" ? "✅ SUCCESS\n\n" : "❌ FAILED\n\n") +
+"Log File: logs/" + data.log_file + "\n\n" +
+data.output;
+
+});
+}
+
+function refreshMonitor(){
+fetch("/refresh")
+.then(res => res.json())
+.then(() => location.reload());
+}
+
+</script>
+
+</body>
 </html>
